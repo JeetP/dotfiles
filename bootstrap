@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "🚀 Bootstrapping dotfiles..."
+
+# Verify Homebrew
+if ! command -v brew >/dev/null 2>&1; then
+    echo "❌ Homebrew is not installed."
+    exit 1
+fi
+
+echo "✅ Homebrew found"
+
+# Install packages
+echo "📦 Installing Brewfile packages..."
+brew bundle --file="$HOME/.dotfiles/Brewfile"
+
+# Stow packages
+cd "$HOME/.dotfiles"
+
+for pkg in git zsh tmux starship nvim; do
+    echo "🔗 Stowing $pkg..."
+    stow "$pkg"
+done
+
+echo
+echo "✅ Bootstrap complete!"
