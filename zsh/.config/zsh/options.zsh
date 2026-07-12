@@ -1,0 +1,3 @@
+setopt AUTO_CD
+setopt INTERACTIVE_COMMENTS
+setopt EXTENDED_GLOB
