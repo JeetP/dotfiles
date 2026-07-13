@@ -16,3 +16,8 @@ __pycache__/
 
 # Logs
 *.log
+
+# Secrets
+.env
+.env.*
+secrets/
