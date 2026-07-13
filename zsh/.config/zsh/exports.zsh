@@ -1,6 +1,10 @@
 export EDITOR=nvim
 export VISUAL=nvim
 export PAGER=less
-if [[ -f ~/.config/secrets/env ]]; then
-  source ~/.config/secrets/env
+
+# User binaries
+export PATH="$HOME/.local/bin:$PATH"
+
+if [[ -f ~/.dotfiles/secrets/env ]]; then
+  source ~/.dotfiles/secrets/env
 fi

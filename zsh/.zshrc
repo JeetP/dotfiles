@@ -27,3 +27,7 @@ source ~/.config/zsh/starship.zsh
 
 # keybindings
 source ~/.config/zsh/keybindings.zsh
+
+
+# Added by Antigravity CLI installer
+export PATH="/Users/jeet/.local/bin:$PATH"
