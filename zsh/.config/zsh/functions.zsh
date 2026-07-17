@@ -1,14 +1,10 @@
 # ~/.config/zsh/functions.zsh
 
-# Override per command when a task benefits from a stronger model, e.g.
-# LLM_MODEL=claude-sonnet-4.5 gitai "review this change"
-: "${LLM_MODEL:=claude-haiku-4.5}"
-
 # Internal common entry point. It deliberately inherits stdin, so every helper
 # can accept piped data without special plumbing.
 _llm_prompt() {
   local system_prompt=$1 prompt=$2
-  llm -m "$LLM_MODEL" -s "$system_prompt" "$prompt"
+  llm -s "$system_prompt" "$prompt"
 }
 
 llmhelp() {
