@@ -4,7 +4,7 @@
 # can accept piped data without special plumbing.
 _llm_prompt() {
   local system_prompt=$1 prompt=$2
-  llm -s "$system_prompt" "$prompt"
+  llm -s "$system_prompt" "$prompt" | glow
 }
 
 llmhelp() {
