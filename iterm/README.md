@@ -1,7 +1,6 @@
 # iTerm2 appearance
 
-Import `JeetP.json` through iTerm2's Profiles → Other Actions → Import JSON, or
-double-click `TokyoNightStorm.itermcolors` and select it under Profiles → Colors.
+Import `TokyoNightStorm.json` through iTerm2's Profiles → Other Actions → Import JSON.
 
 The profile uses Tokyo Night Storm (`#24283B` background and `#C0CAF5`
 foreground), JetBrainsMonoNF-Regular 15, and powerline glyphs. Light/dark color

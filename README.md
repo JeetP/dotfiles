@@ -24,8 +24,8 @@ requests the Mason tools `stylua`, `shfmt`, and `tree-sitter-cli`.
 The `ask` helper's `llm` and `glow` commands are installed as Homebrew
 formulae by the Brewfile.
 
-Import the iTerm2 appearance manually from `iterm/JeetP.json` (or import
-`iterm/TokyoNightStorm.itermcolors` for colors). See `iterm/README.md`.
+Import the iTerm2 appearance manually from `iterm/TokyoNightStorm.json`. See
+`iterm/README.md`.
 
 Per-machine settings belong in the untracked `~/.zshrc.local`; that file is
 sourced after the shared fragments.

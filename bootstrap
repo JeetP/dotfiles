@@ -149,5 +149,5 @@ if command -v nvim >/dev/null 2>&1; then
 fi
 
 echo "==> iTerm2 appearance"
-echo "   Import iterm/JeetP.json or iterm/TokyoNightStorm.itermcolors manually; see iterm/README.md."
+echo "   Import iterm/TokyoNightStorm.json manually; see iterm/README.md."
 echo "✅ Bootstrap complete. Open a new iTerm tab (or run: exec zsh)."
