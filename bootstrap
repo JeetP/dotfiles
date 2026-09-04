@@ -2,27 +2,152 @@
 
 set -euo pipefail
 
-echo "🚀 Bootstrapping dotfiles..."
+DOTFILES="${DOTFILES:-$HOME/.dotfiles}"
+ZSHRC="$HOME/.zshrc"
+ZPROFILE="$HOME/.zprofile"
+STATE_FILE="$DOTFILES/.bootstrap-state"
+BLOCK_START="# >>> dotfiles (JeetP) >>>"
+BLOCK_END="# <<< dotfiles (JeetP) <<<"
 
-# Verify Homebrew
-if ! command -v brew >/dev/null 2>&1; then
-    echo "❌ Homebrew is not installed."
-    exit 1
+die() { echo "❌ $*" >&2; exit 1; }
+
+ensure_file() {
+  [[ -e "$1" ]] || touch "$1"
+}
+
+append_if_missing() {
+  local file="$1" block="$2"
+  ensure_file "$file"
+  if ! grep -Fq "$BLOCK_START" "$file"; then
+    printf '\n%s\n' "$block" >> "$file"
+  fi
+}
+
+remove_block() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  awk -v start="$BLOCK_START" -v end="$BLOCK_END" '
+    $0 == start { inside=1; next }
+    $0 == end { inside=0; next }
+    !inside { print }
+  ' "$file" > "$file.tmp"
+  mv "$file.tmp" "$file"
+}
+
+stow_conflicts_backup() {
+  local package="$1" backup_dir="$2" source rel target target_dir
+  while IFS= read -r -d '' source; do
+    rel="${source#"$DOTFILES/$package/"}"
+    target="$HOME/$rel"
+    if [[ -e "$target" || -L "$target" ]]; then
+      if [[ -L "$target" ]] && readlink "$target" == *"$DOTFILES/$package/"*; then
+        continue
+      fi
+      target_dir="$backup_dir/$(dirname "$rel")"
+      mkdir -p "$target_dir"
+      mv "$target" "$backup_dir/$rel"
+      echo "   backed up $target -> $backup_dir/$rel"
+    fi
+  done < <(find "$DOTFILES/$package" -type f -print0)
+}
+
+stow_package() {
+  local package="$1" backup_dir="$2"
+  stow_conflicts_backup "$package" "$backup_dir"
+  echo "   stowing $package"
+  stow --restow --target="$HOME" "$package"
+}
+
+uninstall() {
+  cd "$DOTFILES"
+  echo "==> removing dotfiles shell blocks"
+  remove_block "$ZSHRC"
+  remove_block "$ZPROFILE"
+
+  echo "==> unstowing packages"
+  for package in git tmux starship nvim zsh; do
+    stow -D --target="$HOME" "$package" 2>/dev/null || true
+  done
+
+  if [[ -f "$STATE_FILE" ]]; then
+    local backup_dir
+    backup_dir="$(sed -n 's/^backup_dir=//p' "$STATE_FILE")"
+    if [[ -n "$backup_dir" && -d "$backup_dir" ]]; then
+      echo "==> restoring backed-up files from $backup_dir"
+      while IFS= read -r -d '' source; do
+        local rel target
+        rel="${source#"$backup_dir/"}"
+        target="$HOME/$rel"
+        if [[ ! -e "$target" && ! -L "$target" ]]; then
+          mkdir -p "$(dirname "$target")"
+          mv "$source" "$target"
+        else
+          echo "   skipped restore (target exists): $target"
+        fi
+      done < <(find "$backup_dir" -type f -print0)
+      rmdir "$backup_dir" 2>/dev/null || true
+    fi
+    rm -f "$STATE_FILE"
+  fi
+  echo "✅ Dotfiles removed. Revert any iTerm2 profile manually in iTerm2 settings."
+}
+
+if [[ "${1:-}" == "--uninstall" ]]; then
+  uninstall
+  exit 0
 fi
+[[ $# -eq 0 ]] || die "unknown option: $1"
+[[ -d "$DOTFILES" ]] || die "dotfiles directory not found: $DOTFILES"
+command -v brew >/dev/null 2>&1 || die "Homebrew is not installed. Install it first: https://brew.sh"
 
-echo "✅ Homebrew found"
+echo "==> brew bundle"
+brew bundle --file="$DOTFILES/Brewfile"
+command -v stow >/dev/null 2>&1 || die "GNU Stow was not installed by Brewfile"
 
-# Install packages
-echo "📦 Installing Brewfile packages..."
-brew bundle --file="$HOME/.dotfiles/Brewfile"
+cd "$DOTFILES"
+timestamp="$(date +%Y%m%d-%H%M%S)"
+backup_dir="$HOME/.dotfiles-backups/$timestamp"
+mkdir -p "$backup_dir"
 
-# Stow packages
-cd "$HOME/.dotfiles"
-
-for pkg in git zsh tmux starship nvim; do
-    echo "🔗 Stowing $pkg..."
-    stow "$pkg"
+# Migrate links created by the old whole-file Zsh package before restowing.
+for legacy in "$ZSHRC" "$ZPROFILE"; do
+  if [[ -L "$legacy" ]] && readlink "$legacy" == *"$DOTFILES/zsh/"*; then
+    rm "$legacy"
+  fi
 done
 
-echo
-echo "✅ Bootstrap complete!"
+printf 'backup_dir=%s\n' "$backup_dir" > "$STATE_FILE"
+for package in git tmux starship nvim zsh; do
+  stow_package "$package" "$backup_dir"
+done
+
+zshrc_block='# >>> dotfiles (JeetP) >>>
+for _f in exports options history completion fzf zoxide aliases functions starship keybindings; do
+  [[ -f "$HOME/.config/zsh/$_f.zsh" ]] && source "$HOME/.config/zsh/$_f.zsh"
+done
+unset _f
+[[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+# <<< dotfiles (JeetP) <<<'
+append_if_missing "$ZSHRC" "$zshrc_block"
+
+zprofile_block='# >>> dotfiles (JeetP) >>>
+_brew="$(command -v brew 2>/dev/null || true)"
+for _candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+  if [[ -z "$_brew" && -x "$_candidate" ]]; then
+    _brew="$_candidate"
+  fi
+done
+[[ -n "$_brew" ]] && eval "$("$_brew" shellenv)"
+unset _brew _candidate
+# <<< dotfiles (JeetP) <<<'
+append_if_missing "$ZPROFILE" "$zprofile_block"
+
+echo "==> Neovim: bootstrap plugins and Mason tools"
+if command -v nvim >/dev/null 2>&1; then
+  nvim --headless '+Lazy! sync' +qa || true
+  nvim --headless '+MasonInstall stylua shfmt tree-sitter-cli' +qa || true
+fi
+
+echo "==> iTerm2 appearance"
+echo "   Import iterm/TokyoNightStorm.json manually; see iterm/README.md."
+echo "✅ Bootstrap complete. Open a new iTerm tab (or run: exec zsh)."
